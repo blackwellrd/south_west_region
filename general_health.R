@@ -54,23 +54,7 @@ df_ts037_ltla_summary <- df_ts037_ltla %>%
   ) %>%
   bind_rows(
     df_ts037_ltla %>% 
-      inner_join(df_swahsn_lu, by = c('LAD22CD' = 'LAD22CD')) %>%
-      group_by(ICB22CD, ICB22NM) %>% 
-      summarise(POPN = sum(POPN), 
-                VERY_GOOD_HEALTH = sum(VERY_GOOD_HEALTH), GOOD_HEALTH = sum(GOOD_HEALTH), 
-                FAIR_HEALTH = sum(FAIR_HEALTH), 
-                BAD_HEALTH = sum(BAD_HEALTH), VERY_BAD_HEALTH = sum(VERY_BAD_HEALTH),
-                .groups = 'keep') %>%
-      ungroup() %>%
-      transmute(LEVEL = 2, AREA_CODE = ICB22CD, AREA_NAME = ICB22NM, 
-                POPN, 
-                VERY_GOOD_HEALTH, GOOD_HEALTH, 
-                FAIR_HEALTH,
-                BAD_HEALTH, VERY_BAD_HEALTH)
-  ) %>%
-  bind_rows(
-    df_ts037_ltla %>% 
-      semi_join(df_swahsn_lu, by = c('LAD22CD' = 'LAD22CD')) %>%
+#      semi_join(df_swahsn_lu, by = c('LAD22CD' = 'LAD22CD')) %>%
       group_by(LAD22CD, LAD22NM) %>% 
       summarise(POPN = sum(POPN), 
                 VERY_GOOD_HEALTH = sum(VERY_GOOD_HEALTH), GOOD_HEALTH = sum(GOOD_HEALTH), 
@@ -78,7 +62,7 @@ df_ts037_ltla_summary <- df_ts037_ltla %>%
                 BAD_HEALTH = sum(BAD_HEALTH), VERY_BAD_HEALTH = sum(VERY_BAD_HEALTH),
                 .groups = 'keep') %>%
       ungroup() %>%
-      transmute(LEVEL = 3, AREA_CODE = LAD22CD, AREA_NAME = LAD22NM, 
+      transmute(LEVEL = 2, AREA_CODE = LAD22CD, AREA_NAME = LAD22NM, 
                 POPN, 
                 VERY_GOOD_HEALTH, GOOD_HEALTH, 
                 FAIR_HEALTH,
@@ -87,7 +71,26 @@ df_ts037_ltla_summary <- df_ts037_ltla %>%
   mutate(PCT_VERY_GOOD_HEALTH = VERY_GOOD_HEALTH / POPN, PCT_GOOD_HEALTH = GOOD_HEALTH / POPN, 
          PCT_FAIR_HEALTH = FAIR_HEALTH / POPN, PCT_BAD_HEALTH = BAD_HEALTH / POPN, PCT_VERY_BAD_HEALTH = VERY_BAD_HEALTH / POPN,
          PCT_VERY_GOOD_AND_GOOD_HEALTH = (VERY_GOOD_HEALTH + GOOD_HEALTH) / POPN,
-         PCT_VERY_BAD_AND_BAD_HEALTH = (VERY_BAD_HEALTH + BAD_HEALTH) / POPN)
+         PCT_VERY_BAD_AND_BAD_HEALTH = (VERY_BAD_HEALTH + BAD_HEALTH) / POPN) %>%
+  group_by(LEVEL) %>%
+  mutate(
+    RANK_VERY_GOOD_HEALTH = rank(desc(PCT_VERY_GOOD_HEALTH), ties.method = 'first'),
+    RANK_VERY_GOOD_HEALTH_LABEL = sprintf('(%d of %d)', RANK_VERY_GOOD_HEALTH, n()),
+    RANK_GOOD_HEALTH = rank(desc(PCT_GOOD_HEALTH), ties.method = 'first'),
+    RANK_GOOD_HEALTH_LABEL = sprintf('(%d of %d)', RANK_GOOD_HEALTH, n()),
+    RANK_FAIR_HEALTH = rank(desc(PCT_FAIR_HEALTH), ties.method = 'first'),
+    RANK_FAIR_HEALTH_LABEL = sprintf('(%d of %d)', RANK_FAIR_HEALTH, n()),
+    RANK_BAD_HEALTH = rank(desc(PCT_BAD_HEALTH), ties.method = 'first'),
+    RANK_BAD_HEALTH_LABEL = sprintf('(%d of %d)', RANK_BAD_HEALTH, n()),
+    RANK_VERY_BAD_HEALTH = rank(desc(PCT_VERY_BAD_HEALTH), ties.method = 'first'),
+    RANK_VERY_BAD_HEALTH_LABEL = sprintf('(%d of %d)', RANK_VERY_BAD_HEALTH, n()),
+    RANK_VERY_GOOD_AND_GOOD_HEALTH = rank(desc(PCT_VERY_GOOD_AND_GOOD_HEALTH), ties.method = 'first'),
+    RANK_VERY_GOOD_AND_GOOD_HEALTH_LABEL = sprintf('(%d of %d)', RANK_VERY_GOOD_AND_GOOD_HEALTH, n()),
+    RANK_VERY_BAD_AND_BAD_HEALTH = rank(desc(PCT_VERY_BAD_AND_BAD_HEALTH), ties.method = 'first'),
+    RANK_VERY_BAD_AND_BAD_HEALTH_LABEL = sprintf('(%d of %d)', RANK_VERY_BAD_AND_BAD_HEALTH, n())
+  ) %>%
+  ungroup() %>%
+  filter(LEVEL < 2 | AREA_CODE %in% df_swahsn_lu$LAD22CD)
 
 plt_ts037_very_good_health <- ggplot(
   df_ts037_ltla_summary %>% 
@@ -100,16 +103,16 @@ plt_ts037_very_good_health <- ggplot(
     axis.text.x = element_text(hjust = 1, vjust = 0.5, angle = 90)
   ) %+%
   labs(
-    title = str_wrap('Percentage of Population in Very Good Health for England, Regions, Local Integrated Care Boards (ICB) and Local Authority Districts (LAD)', 80),
+    title = str_wrap('Percentage of Population in Very Good Health for England, Regions, and Local Authority Districts (LAD)', 80),
     x = 'Area Name', y = '% of Population'
   ) %+%
   scale_y_continuous(labels = percent_format(accuracy = 1), breaks = seq(0,0.5,0.1)) %+%
   #  scale_y_continuous(labels = percent_format(accuracy = 1)) %+%
   scale_fill_manual(
     name = 'Level',
-    breaks = c(0:3), 
-    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a', '3' = '#984ea3'), 
-    labels = c('England','Region','Local ICB','Local LAD')) %+%
+    breaks = c(0:2), 
+    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a'), 
+    labels = c('England','Region','Local LAD')) %+%
   geom_bar(aes(x = AREA_NAME, y = PCT_VERY_GOOD_HEALTH, fill = as.factor(LEVEL), group = LEVEL), stat = 'identity') 
 plt_ts037_very_good_health
 ggsave('.\\outputs\\05_general_health\\plt_ts037_very_good_health.png', plt_ts037_very_good_health, height = 210, width = 297, units = 'mm')
@@ -125,16 +128,16 @@ plt_ts037_good_health <- ggplot(
     axis.text.x = element_text(hjust = 1, vjust = 0.5, angle = 90)
   ) %+%
   labs(
-    title = str_wrap('Percentage of Population in Good Health for England, Regions, Local Integrated Care Boards (ICB) and Local Authority Districts (LAD)', 80),
+    title = str_wrap('Percentage of Population in Good Health for England, Regions, and Local Authority Districts (LAD)', 80),
     x = 'Area Name', y = '% of Population'
   ) %+%
   #  scale_y_continuous(labels = percent_format(accuracy = 1), breaks = seq(0,0.5,0.1)) %+%
   scale_y_continuous(labels = percent_format(accuracy = 1)) %+%
   scale_fill_manual(
     name = 'Level',
-    breaks = c(0:3), 
-    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a', '3' = '#984ea3'), 
-    labels = c('England','Region','Local ICB','Local LAD')) %+%
+    breaks = c(0:2), 
+    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a'), 
+    labels = c('England','Region','Local LAD')) %+%
   geom_bar(aes(x = AREA_NAME, y = PCT_GOOD_HEALTH, fill = as.factor(LEVEL), group = LEVEL), stat = 'identity') 
 plt_ts037_good_health
 ggsave('.\\outputs\\05_general_health\\plt_ts037_good_health.png', plt_ts037_good_health, height = 210, width = 297, units = 'mm')
@@ -150,16 +153,16 @@ plt_ts037_fair_health <- ggplot(
     axis.text.x = element_text(hjust = 1, vjust = 0.5, angle = 90)
   ) %+%
   labs(
-    title = str_wrap('Percentage of Population in Fair Health for England, Regions, Local Integrated Care Boards (ICB) and Local Authority Districts (LAD)', 80),
+    title = str_wrap('Percentage of Population in Fair Health for England, Regions, and Local Authority Districts (LAD)', 80),
     x = 'Area Name', y = '% of Population'
   ) %+%
   #  scale_y_continuous(labels = percent_format(accuracy = 1), breaks = seq(0,0.5,0.1)) %+%
   scale_y_continuous(labels = percent_format(accuracy = 1)) %+%
   scale_fill_manual(
     name = 'Level',
-    breaks = c(0:3), 
-    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a', '3' = '#984ea3'), 
-    labels = c('England','Region','Local ICB','Local LAD')) %+%
+    breaks = c(0:2), 
+    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a'), 
+    labels = c('England','Region','Local LAD')) %+%
   geom_bar(aes(x = AREA_NAME, y = PCT_FAIR_HEALTH, fill = as.factor(LEVEL), group = LEVEL), stat = 'identity') 
 plt_ts037_fair_health
 ggsave('.\\outputs\\05_general_health\\plt_ts037_fair_health.png', plt_ts037_fair_health, height = 210, width = 297, units = 'mm')
@@ -175,16 +178,16 @@ plt_ts037_bad_health <- ggplot(
     axis.text.x = element_text(hjust = 1, vjust = 0.5, angle = 90)
   ) %+%
   labs(
-    title = str_wrap('Percentage of Population in Bad Health for England, Regions, Local Integrated Care Boards (ICB) and Local Authority Districts (LAD)', 80),
+    title = str_wrap('Percentage of Population in Bad Health for England, Regions, and Local Authority Districts (LAD)', 80),
     x = 'Area Name', y = '% of Population'
   ) %+%
   scale_y_continuous(labels = percent_format(accuracy = 1), breaks = seq(0,0.05,0.01)) %+%
   #scale_y_continuous(labels = percent_format(accuracy = 1)) %+%
   scale_fill_manual(
     name = 'Level',
-    breaks = c(0:3), 
-    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a', '3' = '#984ea3'), 
-    labels = c('England','Region','Local ICB','Local LAD')) %+%
+    breaks = c(0:2), 
+    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a'), 
+    labels = c('England','Region','Local LAD')) %+%
   geom_bar(aes(x = AREA_NAME, y = PCT_BAD_HEALTH, fill = as.factor(LEVEL), group = LEVEL), stat = 'identity') 
 plt_ts037_bad_health
 ggsave('.\\outputs\\05_general_health\\plt_ts037_bad_health.png', plt_ts037_bad_health, height = 210, width = 297, units = 'mm')
@@ -200,16 +203,16 @@ plt_ts037_very_bad_health <- ggplot(
     axis.text.x = element_text(hjust = 1, vjust = 0.5, angle = 90)
   ) %+%
   labs(
-    title = str_wrap('Percentage of Population in Very Bad Health for England, Regions, Local Integrated Care Boards (ICB) and Local Authority Districts (LAD)', 80),
+    title = str_wrap('Percentage of Population in Very Bad Health for England, Regions, and Local Authority Districts (LAD)', 80),
     x = 'Area Name', y = '% of Population'
   ) %+%
   scale_y_continuous(labels = percent_format(accuracy = 0.1), breaks = seq(0,0.02,0.005)) %+%
   #scale_y_continuous(labels = percent_format(accuracy = 1)) %+%
   scale_fill_manual(
     name = 'Level',
-    breaks = c(0:3), 
-    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a', '3' = '#984ea3'), 
-    labels = c('England','Region','Local ICB','Local LAD')) %+%
+    breaks = c(0:2), 
+    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a'), 
+    labels = c('England','Region','Local LAD')) %+%
   geom_bar(aes(x = AREA_NAME, y = PCT_VERY_BAD_HEALTH, fill = as.factor(LEVEL), group = LEVEL), stat = 'identity') 
 plt_ts037_very_bad_health
 ggsave('.\\outputs\\05_general_health\\plt_ts037_very_bad_health.png', plt_ts037_very_bad_health, height = 210, width = 297, units = 'mm')
@@ -225,16 +228,16 @@ plt_ts037_very_good_and_good_health <- ggplot(
     axis.text.x = element_text(hjust = 1, vjust = 0.5, angle = 90)
   ) %+%
   labs(
-    title = str_wrap('Percentage of Population in Very Good or Good Health for England, Regions, Local Integrated Care Boards (ICB) and Local Authority Districts (LAD)', 80),
+    title = str_wrap('Percentage of Population in Very Good or Good Health for England, Regions, and Local Authority Districts (LAD)', 80),
     x = 'Area Name', y = '% of Population'
   ) %+%
   scale_y_continuous(labels = percent_format(accuracy = 1), breaks = seq(0,0.8,0.2)) %+%
   #scale_y_continuous(labels = percent_format(accuracy = 1)) %+%
   scale_fill_manual(
     name = 'Level',
-    breaks = c(0:3), 
-    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a', '3' = '#984ea3'), 
-    labels = c('England','Region','Local ICB','Local LAD')) %+%
+    breaks = c(0:2), 
+    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a'), 
+    labels = c('England','Region','Local LAD')) %+%
   geom_bar(aes(x = AREA_NAME, y = PCT_VERY_GOOD_AND_GOOD_HEALTH, fill = as.factor(LEVEL), group = LEVEL), stat = 'identity') 
 plt_ts037_very_good_and_good_health
 ggsave('.\\outputs\\05_general_health\\plt_ts037_very_good_and_good_health.png', plt_ts037_very_good_and_good_health, height = 210, width = 297, units = 'mm')
@@ -250,16 +253,16 @@ plt_ts037_very_bad_and_bad_health <- ggplot(
     axis.text.x = element_text(hjust = 1, vjust = 0.5, angle = 90)
   ) %+%
   labs(
-    title = str_wrap('Percentage of Population in Very Bad or Bad Health for England, Regions, Local Integrated Care Boards (ICB) and Local Authority Districts (LAD)', 80),
+    title = str_wrap('Percentage of Population in Very Bad or Bad Health for England, Regions, and Local Authority Districts (LAD)', 80),
     x = 'Area Name', y = '% of Population'
   ) %+%
   scale_y_continuous(labels = percent_format(accuracy = 1), breaks = seq(0,0.07,0.01)) %+%
   #scale_y_continuous(labels = percent_format(accuracy = 1)) %+%
   scale_fill_manual(
     name = 'Level',
-    breaks = c(0:3), 
-    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a', '3' = '#984ea3'), 
-    labels = c('England','Region','Local ICB','Local LAD')) %+%
+    breaks = c(0:2), 
+    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a'), 
+    labels = c('England','Region','Local LAD')) %+%
   geom_bar(aes(x = AREA_NAME, y = PCT_VERY_BAD_AND_BAD_HEALTH, fill = as.factor(LEVEL), group = LEVEL), stat = 'identity') 
 plt_ts037_very_bad_and_bad_health
 ggsave('.\\outputs\\05_general_health\\plt_ts037_very_bad_and_bad_health.png', plt_ts037_very_bad_and_bad_health, height = 210, width = 297, units = 'mm')

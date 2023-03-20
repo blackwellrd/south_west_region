@@ -8,6 +8,8 @@ library(readxl)
 # Load and process references
 # ===========================
 
+tidy_up <- TRUE
+
 df_lad22_rgn22_lu <- read.csv('.\\data\\00_reference\\Local_Authority_District_to_Region_(December_2022)_Lookup_in_England.csv') %>%
   rename_with(.fn = function(x){c('LAD22CD','LAD22NM','RGN22CD','RGN22NM','OBJECTID')})
 
@@ -35,6 +37,10 @@ df_swahsn_lu$ICB22NM <- 'NHS Devon ICB'
 df_swahsn_lu$ICB22NM[df_swahsn_lu$LAD22NM %in% cornwall_lad] <- 'NHS Cornwall and IoS ICB'
 df_swahsn_lu$ICB22NM[df_swahsn_lu$LAD22NM %in% somerset_lad] <- 'NHS Somerset ICB'
 
+if(tidy_up){
+  object_list <- c(ls(), 'df_ts009_ltla', 'object_list')
+}
+
 # ======================== #
 # Demography and migration #
 # ======================== #
@@ -42,23 +48,119 @@ df_swahsn_lu$ICB22NM[df_swahsn_lu$LAD22NM %in% somerset_lad] <- 'NHS Somerset IC
 # Population age
 # ==============
 source('population_age.R', local = TRUE)
+if(tidy_up){
+  rm(list = ls()[!(ls() %in% object_list)])
+}
 
 
 # Population density
 # ==================
 source('population_density.R', local = TRUE)
+if(tidy_up){
+  rm(list = ls()[!(ls() %in% object_list)])
+}
 
 # Population deprivation
 # ======================
 source('population_deprivation.R', local = TRUE)
+if(tidy_up){
+  rm(list = ls()[!(ls() %in% object_list)])
+}
+
+# ========================================== #
+# Ethnicity, identity, language and religion #
+# ========================================== #
 
 # Ethnicity
 # =========
 source('ethnicity.R', local = TRUE)
+if(tidy_up){
+  rm(list = ls()[!(ls() %in% object_list)])
+}
+
+# ====== #
+# Health #
+# ====== #
 
 # General Health
 # ==============
 source('general_health.R', local = TRUE)
+if(tidy_up){
+  rm(list = ls()[!(ls() %in% object_list)])
+}
 
 # Disability
 # ==========
+source('disability.R', local = TRUE)
+if(tidy_up){
+  rm(list = ls()[!(ls() %in% object_list)])
+}
+
+# Unpaid Care
+# ===========
+source('unpaid_care.R', local = TRUE)
+if(tidy_up){
+  rm(list = ls()[!(ls() %in% object_list)])
+}
+
+# ========= #
+# Education #
+# ========= #
+
+# Education
+# =========
+source('education.R', local = TRUE)
+if(tidy_up){
+  rm(list = ls()[!(ls() %in% object_list)])
+}
+
+# ======= #
+# Housing #
+# ======= #
+
+# Car ownership
+# =============
+source('car_ownership.R', local = TRUE)
+if(tidy_up){
+  rm(list = ls()[!(ls() %in% object_list)])
+}
+
+# Central heating
+# ===============
+source('central_heating.R', local = TRUE)
+if(tidy_up){
+  rm(list = ls()[!(ls() %in% object_list)])
+}
+
+# Tenure
+# ======
+source('tenure.R', local = TRUE)
+if(tidy_up){
+  rm(list = ls()[!(ls() %in% object_list)])
+}
+
+# =============== #
+# Work and travel #
+# =============== #
+
+# Distance to work
+# ================
+source('distance_to_work.R', local = TRUE)
+if(tidy_up){
+  rm(list = ls()[!(ls() %in% object_list)])
+}
+
+# Industry employment
+# ===================
+source('industry_employment.R', local = TRUE)
+if(tidy_up){
+  rm(list = ls()[!(ls() %in% object_list)])
+}
+
+# Economic activity status
+# ========================
+# TS066 - Economic activity status data
+source('economic_activity_status.R', local = TRUE)
+if(tidy_up){
+  rm(list = ls()[!(ls() %in% object_list)])
+}

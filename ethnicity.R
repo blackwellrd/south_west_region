@@ -49,25 +49,30 @@ df_ts021_ltla_summary <- df_ts021_ltla %>%
   ) %>%
   bind_rows(
     df_ts021_ltla %>% 
-      inner_join(df_swahsn_lu, by = c('LAD22CD' = 'LAD22CD')) %>%
-      group_by(ICB22CD, ICB22NM) %>% 
-      summarise(POPN = sum(POPN), 
-                WHITE = sum(WHITE), ASIAN = sum(ASIAN), BLACK = sum(BLACK), MIXED = sum(MIXED), OTHER = sum(OTHER),
-                .groups = 'keep') %>%
-      ungroup() %>%
-      transmute(LEVEL = 2, AREA_CODE = ICB22CD, AREA_NAME = ICB22NM, POPN, WHITE, ASIAN, BLACK, MIXED, OTHER)
-  ) %>%
-  bind_rows(
-    df_ts021_ltla %>% 
-      semi_join(df_swahsn_lu, by = c('LAD22CD' = 'LAD22CD')) %>%
+#      semi_join(df_swahsn_lu, by = c('LAD22CD' = 'LAD22CD')) %>%
       group_by(LAD22CD, LAD22NM) %>% 
       summarise(POPN = sum(POPN), 
                 WHITE = sum(WHITE), ASIAN = sum(ASIAN), BLACK = sum(BLACK), MIXED = sum(MIXED), OTHER = sum(OTHER),
                 .groups = 'keep') %>%
       ungroup() %>%
-      transmute(LEVEL = 3, AREA_CODE = LAD22CD, AREA_NAME = LAD22NM, POPN, WHITE, ASIAN, BLACK, MIXED, OTHER)
+      transmute(LEVEL = 2, AREA_CODE = LAD22CD, AREA_NAME = LAD22NM, POPN, WHITE, ASIAN, BLACK, MIXED, OTHER)
   ) %>% 
-  mutate(PCT_WHITE = WHITE/POPN, PCT_ASIAN = ASIAN/POPN, PCT_BLACK = BLACK/POPN, PCT_MIXED = MIXED/POPN, PCT_OTHER = OTHER/POPN)
+  mutate(PCT_WHITE = WHITE/POPN, PCT_ASIAN = ASIAN/POPN, PCT_BLACK = BLACK/POPN, PCT_MIXED = MIXED/POPN, PCT_OTHER = OTHER/POPN) %>%
+  group_by(LEVEL) %>%
+  mutate(
+    RANK_WHITE = rank(desc(PCT_WHITE), ties.method = 'first'),
+    RANK_WHITE_LABEL = sprintf('(%d of %d)', RANK_WHITE, n()),
+    RANK_ASIAN = rank(desc(PCT_ASIAN), ties.method = 'first'),
+    RANK_ASIAN_LABEL = sprintf('(%d of %d)', RANK_ASIAN, n()),
+    RANK_BLACK = rank(desc(PCT_BLACK), ties.method = 'first'),
+    RANK_BLACK_LABEL = sprintf('(%d of %d)', RANK_BLACK, n()),
+    RANK_MIXED = rank(desc(PCT_MIXED), ties.method = 'first'),
+    RANK_MIXED_LABEL = sprintf('(%d of %d)', RANK_MIXED, n()),
+    RANK_OTHER = rank(desc(PCT_OTHER), ties.method = 'first'),
+    RANK_OTHER_LABEL = sprintf('(%d of %d)', RANK_OTHER, n())
+  ) %>%
+  ungroup() %>%
+  filter(LEVEL < 2 | AREA_CODE %in% df_swahsn_lu$LAD22CD)
 
 plt_ts021_ethnicity_white <- ggplot(
   df_ts021_ltla_summary %>% 
@@ -80,15 +85,15 @@ plt_ts021_ethnicity_white <- ggplot(
     axis.text.x = element_text(hjust = 1, vjust = 0.5, angle = 90)
   ) %+%
   labs(
-    title = str_wrap('Percentage of Population of White Ethnic Group for England, Regions, Local Integrated Care Boards (ICB) and Local Authority Districts (LAD)', 80),
+    title = str_wrap('Percentage of Population of White Ethnic Group for England, Regions, and Local Authority Districts (LAD)', 80),
     x = 'Area Name', y = '% of Population'
   ) %+%
   scale_y_continuous(labels = percent_format(accuracy = 1), breaks = seq(0,1,0.2)) %+%
   scale_fill_manual(
     name = 'Level',
-    breaks = c(0:3), 
-    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a', '3' = '#984ea3'), 
-    labels = c('England','Region','Local ICB','Local LAD')) %+%
+    breaks = c(0:2), 
+    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a'), 
+    labels = c('England','Region','Local LAD')) %+%
   geom_bar(aes(x = AREA_NAME, y = PCT_WHITE, fill = as.factor(LEVEL), group = LEVEL), stat = 'identity') 
 plt_ts021_ethnicity_white
 ggsave('.\\outputs\\04_ethnicity\\plt_ts021_ethnicity_white.png', plt_ts021_ethnicity_white, height = 210, width = 297, units = 'mm')
@@ -104,15 +109,15 @@ plt_ts021_ethnicity_asian <- ggplot(
     axis.text.x = element_text(hjust = 1, vjust = 0.5, angle = 90)
   ) %+%
   labs(
-    title = str_wrap('Percentage of Population of Asian Ethnic Group for England, Regions, Local Integrated Care Boards (ICB) and Local Authority Districts (LAD)', 80),
+    title = str_wrap('Percentage of Population of Asian Ethnic Group for England, Regions, and Local Authority Districts (LAD)', 80),
     x = 'Area Name', y = '% of Population'
   ) %+%
   scale_y_continuous(labels = percent_format(accuracy = 1), breaks = seq(0,0.2,0.05)) %+%
   scale_fill_manual(
     name = 'Level',
-    breaks = c(0:3), 
-    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a', '3' = '#984ea3'), 
-    labels = c('England','Region','Local ICB','Local LAD')) %+%
+    breaks = c(0:2), 
+    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a'), 
+    labels = c('England','Region','Local LAD')) %+%
   geom_bar(aes(x = AREA_NAME, y = PCT_ASIAN, fill = as.factor(LEVEL), group = LEVEL), stat = 'identity') 
 plt_ts021_ethnicity_asian
 ggsave('.\\outputs\\04_ethnicity\\plt_ts021_ethnicity_asian.png', plt_ts021_ethnicity_asian, height = 210, width = 297, units = 'mm')
@@ -128,15 +133,15 @@ plt_ts021_ethnicity_black <- ggplot(
     axis.text.x = element_text(hjust = 1, vjust = 0.5, angle = 90)
   ) %+%
   labs(
-    title = str_wrap('Percentage of Population of Black Ethnic Group for England, Regions, Local Integrated Care Boards (ICB) and Local Authority Districts (LAD)', 80),
+    title = str_wrap('Percentage of Population of Black Ethnic Group for England, Regions, and Local Authority Districts (LAD)', 80),
     x = 'Area Name', y = '% of Population'
   ) %+%
   scale_y_continuous(labels = percent_format(accuracy = 1), breaks = seq(0,0.2,0.05)) %+%
   scale_fill_manual(
     name = 'Level',
-    breaks = c(0:3), 
-    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a', '3' = '#984ea3'), 
-    labels = c('England','Region','Local ICB','Local LAD')) %+%
+    breaks = c(0:2), 
+    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a'), 
+    labels = c('England','Region','Local LAD')) %+%
   geom_bar(aes(x = AREA_NAME, y = PCT_BLACK, fill = as.factor(LEVEL), group = LEVEL), stat = 'identity') 
 plt_ts021_ethnicity_black
 ggsave('.\\outputs\\04_ethnicity\\plt_ts021_ethnicity_black.png', plt_ts021_ethnicity_asian, height = 210, width = 297, units = 'mm')
@@ -152,15 +157,15 @@ plt_ts021_ethnicity_mixed <- ggplot(
     axis.text.x = element_text(hjust = 1, vjust = 0.5, angle = 90)
   ) %+%
   labs(
-    title = str_wrap('Percentage of Population of Mixed Ethnic Group for England, Regions, Local Integrated Care Boards (ICB) and Local Authority Districts (LAD)', 80),
+    title = str_wrap('Percentage of Population of Mixed Ethnic Group for England, Regions, and Local Authority Districts (LAD)', 80),
     x = 'Area Name', y = '% of Population'
   ) %+%
   scale_y_continuous(labels = percent_format(accuracy = 1), breaks = seq(0,0.05,0.01)) %+%
   scale_fill_manual(
     name = 'Level',
-    breaks = c(0:3), 
-    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a', '3' = '#984ea3'), 
-    labels = c('England','Region','Local ICB','Local LAD')) %+%
+    breaks = c(0:2), 
+    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a'), 
+    labels = c('England','Region','Local LAD')) %+%
   geom_bar(aes(x = AREA_NAME, y = PCT_MIXED, fill = as.factor(LEVEL), group = LEVEL), stat = 'identity') 
 plt_ts021_ethnicity_mixed
 ggsave('.\\outputs\\04_ethnicity\\plt_ts021_ethnicity_mixed.png', plt_ts021_ethnicity_mixed, height = 210, width = 297, units = 'mm')
@@ -176,15 +181,15 @@ plt_ts021_ethnicity_other <- ggplot(
     axis.text.x = element_text(hjust = 1, vjust = 0.5, angle = 90)
   ) %+%
   labs(
-    title = str_wrap('Percentage of Population of Other Ethnic Groups for England, Regions, Local Integrated Care Boards (ICB) and Local Authority Districts (LAD)', 80),
+    title = str_wrap('Percentage of Population of Other Ethnic Groups for England, Regions, and Local Authority Districts (LAD)', 80),
     x = 'Area Name', y = '% of Population'
   ) %+%
   scale_y_continuous(labels = percent_format(accuracy = 1), breaks = seq(0,0.07,0.01)) %+%
   scale_fill_manual(
     name = 'Level',
-    breaks = c(0:3), 
-    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a', '3' = '#984ea3'), 
-    labels = c('England','Region','Local ICB','Local LAD')) %+%
+    breaks = c(0:2), 
+    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a'), 
+    labels = c('England','Region','Local LAD')) %+%
   geom_bar(aes(x = AREA_NAME, y = PCT_OTHER, fill = as.factor(LEVEL), group = LEVEL), stat = 'identity') 
 plt_ts021_ethnicity_other
 ggsave('.\\outputs\\04_ethnicity\\plt_ts021_ethnicity_other.png', plt_ts021_ethnicity_other, height = 210, width = 297, units = 'mm')

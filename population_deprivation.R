@@ -48,23 +48,7 @@ df_ts011_ltla_summary <- df_ts011_ltla %>%
   ) %>%
   bind_rows(
     df_ts011_ltla %>% 
-      inner_join(df_swahsn_lu, by = c('LAD22CD' = 'LAD22CD')) %>%
-      group_by(ICB22CD, ICB22NM) %>% 
-      summarise(
-        HOUSEHOLDS = sum(HOUSEHOLDS), 
-        HOUSEHOLDS_0 = sum(HOUSEHOLDS_0), 
-        HOUSEHOLDS_1 = sum(HOUSEHOLDS_1), 
-        HOUSEHOLDS_2 = sum(HOUSEHOLDS_2), 
-        HOUSEHOLDS_3 = sum(HOUSEHOLDS_3), 
-        HOUSEHOLDS_4 = sum(HOUSEHOLDS_4), 
-        .groups = 'keep') %>%
-      ungroup() %>%
-      transmute(LEVEL = 2, AREA_CODE = ICB22CD, AREA_NAME = ICB22NM,
-                HOUSEHOLDS, HOUSEHOLDS_0, HOUSEHOLDS_1, HOUSEHOLDS_2, HOUSEHOLDS_3, HOUSEHOLDS_4)
-  ) %>%
-  bind_rows(
-    df_ts011_ltla %>% 
-      semi_join(df_swahsn_lu, by = c('LAD22CD' = 'LAD22CD')) %>%
+#      semi_join(df_swahsn_lu, by = c('LAD22CD' = 'LAD22CD')) %>%
       group_by(LAD22CD, LAD22NM) %>% 
       summarise(
         HOUSEHOLDS = sum(HOUSEHOLDS), 
@@ -75,9 +59,9 @@ df_ts011_ltla_summary <- df_ts011_ltla %>%
         HOUSEHOLDS_4 = sum(HOUSEHOLDS_4), 
         .groups = 'keep') %>%
       ungroup() %>%
-      transmute(LEVEL = 3, AREA_CODE = LAD22CD, AREA_NAME = LAD22NM,
+      transmute(LEVEL = 2, AREA_CODE = LAD22CD, AREA_NAME = LAD22NM,
                 HOUSEHOLDS, HOUSEHOLDS_0, HOUSEHOLDS_1, HOUSEHOLDS_2, HOUSEHOLDS_3, HOUSEHOLDS_4)
-  ) 
+  )
 
 df_ts011_ltla_summary <- df_ts011_ltla_summary %>% 
   mutate(
@@ -85,7 +69,20 @@ df_ts011_ltla_summary <- df_ts011_ltla_summary %>%
     PCT_HOUSEHOLDS_4 = HOUSEHOLDS_4 / HOUSEHOLDS, 
     DEPRIVATION_SCORE = HOUSEHOLDS_1 + (HOUSEHOLDS_2 * 2) + (HOUSEHOLDS_3 * 3) + (HOUSEHOLDS_4 * 4),
     AVG_DEPRIVATION_SCORE = DEPRIVATION_SCORE / HOUSEHOLDS
-  )
+  ) %>%
+  group_by(LEVEL) %>%
+  mutate(
+    RANK_HOUSEHOLDS_0 = rank(desc(PCT_HOUSEHOLDS_0), ties.method = 'first'),
+    RANK_HOUSEHOLDS_0_LABEL = sprintf('(%d of %d)', RANK_HOUSEHOLDS_0, n()),
+    RANK_HOUSEHOLDS_4 = rank(desc(PCT_HOUSEHOLDS_4), ties.method = 'first'),
+    RANK_HOUSEHOLDS_4_LABEL = sprintf('(%d of %d)', RANK_HOUSEHOLDS_4, n()),
+    RANK_DEPRIVATION_SCORE = rank(desc(DEPRIVATION_SCORE), ties.method = 'first'),
+    RANK_DEPRIVATION_SCORE_LABEL = sprintf('(%d of %d)', RANK_DEPRIVATION_SCORE, n()),
+    RANK_AVG_DEPRIVATION_SCORE = rank(desc(AVG_DEPRIVATION_SCORE), ties.method = 'first'),
+    RANK_AVG_DEPRIVATION_SCORE_LABEL = sprintf('(%d of %d)', RANK_AVG_DEPRIVATION_SCORE, n())
+  ) %>%
+  ungroup() %>%
+  filter(LEVEL < 2 | AREA_CODE %in% df_swahsn_lu$LAD22CD)
 
 plt_ts011_not_deprived <- ggplot(
   df_ts011_ltla_summary %>% 
@@ -97,14 +94,14 @@ plt_ts011_not_deprived <- ggplot(
     plot.title = element_text(hjust = 0.5),
     axis.text.x = element_text(hjust = 1, vjust = 0.5, angle = 90)
   ) %+%
-  labs(title = str_wrap('Proportion of Households in Area that are not in any of the Four Dimensions of Deprivation (Employment, Education, Health and Disability, and Household Overcrowding) for England, Regions, Local Integrated Care Boards (ICB) and Local Authority Districts (LAD)', 80),
+  labs(title = str_wrap('Proportion of Households in Area that are not in any of the Four Dimensions of Deprivation (Employment, Education, Health and Disability, and Household Overcrowding) for England, Regions, and Local Authority Districts (LAD)', 80),
        x = 'Area Name', y = '% of Households Not Deprived') %+%
   scale_y_continuous(label = percent_format(accuracy = 1)) %+%
   scale_fill_manual(
     name = 'Level',
-    breaks = c(0:3), 
-    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a', '3' = '#984ea3'), 
-    labels = c('England','Region','Local ICB','Local LAD')) %+%
+    breaks = c(0:2), 
+    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a'), 
+    labels = c('England','Region','Local LAD')) %+%
   geom_bar(aes(x = AREA_NAME, y = PCT_HOUSEHOLDS_0, fill = as.factor(LEVEL), group = LEVEL), stat = 'identity') 
 plt_ts011_not_deprived
 ggsave('.\\outputs\\03_population_deprivation\\plt_ts011_not_deprived.png', plt_ts011_not_deprived, height = 210, width = 297, units = 'mm')
@@ -119,15 +116,15 @@ plt_ts011_most_deprived <- ggplot(
     plot.title = element_text(hjust = 0.5),
     axis.text.x = element_text(hjust = 1, vjust = 0.5, angle = 90)
   ) %+%
-  labs(title = str_wrap('Proportion of Households in Area that are in all Four Dimensions of Deprivation (Employment, Education, Health and Disability, and Household Overcrowding) for England, Regions, Local Integrated Care Boards (ICB) and Local Authority Districts (LAD)', 80),
+  labs(title = str_wrap('Proportion of Households in Area that are in all Four Dimensions of Deprivation (Employment, Education, Health and Disability, and Household Overcrowding) for England, Regions, and Local Authority Districts (LAD)', 80),
        x = 'Area Name', y = '% of Households Most Deprived'
   ) %+%
   scale_y_continuous(label = percent_format(accuracy = 0.1)) %+%
   scale_fill_manual(
     name = 'Level',
-    breaks = c(0:3), 
-    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a', '3' = '#984ea3'), 
-    labels = c('England','Region','Local ICB','Local LAD')) %+%
+    breaks = c(0:2), 
+    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a'), 
+    labels = c('England','Region','Local LAD')) %+%
   geom_bar(aes(x = AREA_NAME, y = PCT_HOUSEHOLDS_4, fill = as.factor(LEVEL), group = LEVEL), stat = 'identity') 
 plt_ts011_most_deprived
 ggsave('.\\outputs\\03_population_deprivation\\plt_ts011_most_deprived.png', plt_ts011_most_deprived, height = 210, width = 297, units = 'mm')
@@ -143,15 +140,15 @@ plt_ts011_deprivation_score <- ggplot(
     axis.text.x = element_text(hjust = 1, vjust = 0.5, angle = 90)
   ) %+%
   labs(
-    title = str_wrap('Mean Number of the Four Dimensions Deprivation (Employment, Education, Health and Disability, and Household Overcrowding) for Households for England, Regions, Local Integrated Care Boards (ICB) and Local Authority Districts (LAD)', 80),
+    title = str_wrap('Mean Number of the Four Dimensions Deprivation (Employment, Education, Health and Disability, and Household Overcrowding) for Households for England, Regions, and Local Authority Districts (LAD)', 80),
     x = 'Area Name', y = 'Mean Number of Dimensions per Household'
   ) %+%
   scale_y_continuous(labels = function(x){round(x, 1)}, breaks = seq(0,1,0.2)) %+%
   scale_fill_manual(
     name = 'Level',
-    breaks = c(0:3), 
-    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a', '3' = '#984ea3'), 
-    labels = c('England','Region','Local ICB','Local LAD')) %+%
+    breaks = c(0:2), 
+    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a'), 
+    labels = c('England','Region','Local LAD')) %+%
   geom_bar(aes(x = AREA_NAME, y = AVG_DEPRIVATION_SCORE, fill = as.factor(LEVEL), group = LEVEL), stat = 'identity') 
 plt_ts011_deprivation_score
 ggsave('.\\outputs\\03_population_deprivation\\plt_ts011_deprivation_score.png', plt_ts011_deprivation_score, height = 210, width = 297, units = 'mm')

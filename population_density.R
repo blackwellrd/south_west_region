@@ -18,8 +18,8 @@ df_ts006_ltla <- read.csv(unzip('.\\data\\01_demography_and_migration\\census202
 
 df_ts006_lsoa <- read.csv(unzip('.\\data\\01_demography_and_migration\\census2021-ts006.zip', 'census2021-ts006-lsoa.csv')) %>%
   rename_with(.fn = function(x){c('YEAR','LSOA21NM','LSOA21CD','POPN_PER_SQ_KM')}) %>%
-  left_join(sf_lsoa21 %>% st_drop_geometry() %>% select(LSOA21CD, Shape__Are), by = c('LSOA21CD' = 'LSOA21CD')) %>%
-  transmute(YEAR, LSOA21CD, LSOA21NM, AREA_SQ_KM = Shape__Are / 1e06, POPN_PER_SQ_KM)
+  left_join(sf_lsoa21 %>% st_drop_geometry() %>% select(LSOA21CD, SHAPE_Area), by = c('LSOA21CD' = 'LSOA21CD')) %>%
+  transmute(YEAR, LSOA21CD, LSOA21NM, AREA_SQ_KM = SHAPE_Area / 1e06, POPN_PER_SQ_KM)
 
 df_ts006_summary <- df_ts006_ltla %>% 
   summarise(POPN = sum(POPN), AREA_SQ_KM = sum(AREA_SQ_KM), .groups = 'keep') %>%
@@ -33,17 +33,17 @@ df_ts006_summary <- df_ts006_ltla %>%
   ) %>%
   bind_rows(
     df_ts006_ltla %>% 
-      inner_join(df_swahsn_lu, by = c('LAD22CD' = 'LAD22CD', 'LAD22NM' = 'LAD22NM')) %>%
-      group_by(ICB22CD, ICB22NM) %>%
-      summarise(POPN = sum(POPN), AREA_SQ_KM = sum(AREA_SQ_KM), .groups = 'keep') %>%
-      ungroup() %>%
-      transmute(LEVEL = 2, AREA_CODE = ICB22CD, AREA_NAME = ICB22NM, POPN, AREA_SQ_KM, POPN_PER_SQ_KM = POPN / AREA_SQ_KM)
-  ) %>% 
-  bind_rows(
-    df_ts006_ltla %>% 
-      semi_join(df_swahsn_lu, by = c('LAD22CD' = 'LAD22CD', 'LAD22NM' = 'LAD22NM')) %>%
-      transmute(LEVEL = 3, AREA_CODE = LAD22CD, AREA_NAME = LAD22NM, POPN, AREA_SQ_KM, POPN_PER_SQ_KM = POPN / AREA_SQ_KM)
-  )
+# Don't filter for local areas as we need all for ranking
+#      semi_join(df_swahsn_lu, by = c('LAD22CD' = 'LAD22CD', 'LAD22NM' = 'LAD22NM')) %>%
+      transmute(LEVEL = 2, AREA_CODE = LAD22CD, AREA_NAME = LAD22NM, POPN, AREA_SQ_KM, POPN_PER_SQ_KM = POPN / AREA_SQ_KM)
+  ) %>%
+  group_by(LEVEL) %>%
+  mutate(
+    RANK_DENSITY = rank(POPN_PER_SQ_KM, ties.method = 'first'),
+    RANK_DENSITY_LABEL = sprintf('(%d of %d)', RANK_DENSITY, n())
+  ) %>%
+  ungroup() %>%
+  filter(LEVEL < 2 | AREA_CODE %in% df_swahsn_lu$LAD22CD)
 
 plt_ts006 <- ggplot(
   df_ts006_summary %>% 
@@ -55,13 +55,13 @@ plt_ts006 <- ggplot(
     plot.title = element_text(hjust = 0.5),
     axis.text.x = element_text(hjust = 1, vjust = 0.5, angle = 90)
   ) %+%
-  labs(title = str_wrap('Population per Square Km for England, Regions, Local Integrated Care Boards (ICB) and Local Authority Districts (LAD)', 80),
+  labs(title = str_wrap('Population per Square Km for England, Regions, and Local Authority Districts (LAD)', 80),
        x = 'Area Name', y = 'Popn / Sq. Km') %+%
   scale_fill_manual(
     name = 'Level',
-    breaks = c(0:3), 
-    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a', '3' = '#984ea3'), 
-    labels = c('England','Region','Local ICB','Local LAD')) %+%
+    breaks = c(0:2), 
+    values = c('0' = '#e41a1c', '1' = '#377eb8', '2' = '#4daf4a'), 
+    labels = c('England','Region','Local LAD')) %+%
   geom_bar(aes(x = AREA_NAME, y = POPN_PER_SQ_KM, fill = as.factor(LEVEL), group = LEVEL), stat = 'identity') 
 plt_ts006
 ggsave('.\\outputs\\01_population_density\\ts006_bar_chart.png', plt_ts006, height = 210, width = 297, units = 'mm')
